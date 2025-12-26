@@ -6,7 +6,11 @@ import './FilesList.css';
 
 const STORAGE_KEY = 'appwrite_bucket_id';
 
-const FilesList = () => {
+interface FilesListProps {
+    onBack: () => void;
+}
+
+const FilesList = ({ onBack }: FilesListProps) => {
     const [bucketId, setBucketId] = useState(() => {
         return localStorage.getItem(STORAGE_KEY) || '';
     });
@@ -17,6 +21,8 @@ const FilesList = () => {
     const [downloading, setDownloading] = useState<string | null>(null);
     const [lastFileId, setLastFileId] = useState<string | undefined>(undefined);
     const [hasMore, setHasMore] = useState(true);
+    const [fromDate, setFromDate] = useState('');
+    const [toDate, setToDate] = useState('');
 
     // Save bucket ID to localStorage whenever it changes
     useEffect(() => {
@@ -43,7 +49,20 @@ const FilesList = () => {
             setError(null);
 
             const limit = 100; // Fetch 100 files per request
-            const queries: string[] = [Query.limit(limit)];
+            const queries: string[] = [
+                Query.limit(limit),
+                Query.orderDesc('$createdAt')
+            ];
+
+            if (fromDate) {
+                queries.push(Query.greaterThanEqual('$createdAt', new Date(fromDate).toISOString()));
+            }
+            if (toDate) {
+                // Add one day to include the end date fully
+                const end = new Date(toDate);
+                end.setDate(end.getDate() + 1);
+                queries.push(Query.lessThan('$createdAt', end.toISOString()));
+            }
 
             // Use queries array for cursor pagination
             if (isLoadMore && lastFileId) {
@@ -115,6 +134,9 @@ const FilesList = () => {
 
     return (
         <div className="container">
+            <button onClick={onBack} className="refresh-btn" style={{ marginBottom: '1rem' }}>
+                ← Back
+            </button>
             <div className="bucket-input-section">
                 <h1>Storage Files</h1>
                 <div className="input-group">
@@ -125,6 +147,22 @@ const FilesList = () => {
                         placeholder="Enter Bucket ID"
                         className="bucket-input"
                         disabled={loading}
+                    />
+                </div>
+                <div className="input-group" style={{ marginTop: '10px' }}>
+                     <input
+                        type="date"
+                        value={fromDate}
+                        onChange={(e) => setFromDate(e.target.value)}
+                        className="bucket-input"
+                        placeholder="From Date"
+                    />
+                    <input
+                        type="date"
+                        value={toDate}
+                        onChange={(e) => setToDate(e.target.value)}
+                        className="bucket-input"
+                        placeholder="To Date"
                     />
                     <button
                         onClick={() => fetchFiles(false)}
